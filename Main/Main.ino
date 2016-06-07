@@ -12,14 +12,15 @@ const char* password = "pass";
 #define KEY     "KEY"
 #define SECRET  "SECRET"
 #define ALIAS   "d-duino"
-#define DHTPIN  "4"
-#define DHTTYPE "DHT22"
+#define DHTPIN  4
+#define DHTTYPE DHT22
 
 WiFiClient client;
 AuthClient *authclient;
 
 int timer = 0;
 MicroGear microgear(client);
+DHT dht(DHTPIN, DHTTYPE);
 
 /* If a new message arrives, do this */
 void onMsghandler(char *topic, uint8_t* msg, unsigned int msglen) {
@@ -66,7 +67,9 @@ void setup() {
     microgear.on(CONNECTED,onConnected);
 
     Serial.begin(115200);
-    Serial.println("Starting...");
+    dht.begin();
+    Serial.println("DHTxx test!");
+    Serial.print("Wifi Connecting...");
 
     /* Initial WIFI, this is just a basic method to configure WIFI on ESP8266.                       */
     /* You may want to use other method that is more complicated, but provide better user experience */
@@ -97,10 +100,27 @@ void loop() {
         microgear.loop();
 
         if (timer >= 1000) {
-            Serial.println("Publish...");
+            float vhud = dht.readHumidity();
+            float vtmp = dht.readTemperature();
+            char ascii[32];
 
-            /* Chat with the microgear named ALIAS which is myself */
-            microgear.publish("/duinosensor","Hello");
+            if (isnan(vhud) || isnan(vtmp) || vhud > 100 || vtmp > 100){
+                vhud = 0.0;
+                vtmp = 0.0;
+            }
+
+            int humid_value = (vhud - (int)vhud) * 100;
+            int tempe_value = (vtmp - (int)vtmp) * 100;
+
+            Serial.print("Humidity: ");
+            Serial.print(vhud);
+            Serial.print(" %\t");
+            Serial.print("Temperature: ");
+            Serial.print(vtmp);
+            Serial.print(" *C ");
+
+            sprintf(ascii,"%d.%d,%d.%d,d-duino", (int)vtmp, tempe_value,(int)vhud,humid_value);
+            microgear.chat("duinosensor",ascii);
             timer = 0;
         } 
         else timer += 100;
