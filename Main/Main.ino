@@ -2,8 +2,12 @@
 /*  More information visit : https://netpie.io             */
 
 #include <ESP8266WiFi.h>
-#include <MicroGear.h>
 #include <DHT.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <MicroGear.h>
 
 const char* ssid     = "ssid";
 const char* password = "pass";
@@ -12,8 +16,11 @@ const char* password = "pass";
 #define KEY     "KEY"
 #define SECRET  "SECRET"
 #define ALIAS   "d-duino"
-#define DHTPIN  4
+#define DHTPIN  0
 #define DHTTYPE DHT22
+#define OLED_RESET 30
+
+Adafruit_SSD1306 display(OLED_RESET);
 
 WiFiClient client;
 AuthClient *authclient;
@@ -21,6 +28,38 @@ AuthClient *authclient;
 int timer = 0;
 MicroGear microgear(client);
 DHT dht(DHTPIN, DHTTYPE);
+
+static const unsigned char PROGMEM gear[] =
+{ 
+  B00000000, B00000000, B00000000, B00000000, B11111111, B11000000, B00000000, B00000000, B00000000, 
+  B00000000, B00000000, B00000000, B00111111, B11111111, B11000000, B00000000, B00000000, B00000000, 
+  B00000000, B00000000, B00000011, B11111111, B11111111, B11000000, B00000000, B00000000, B00000000, 
+  B00000000, B00000000, B00111111, B11111111, B11111111, B11000000, B00000000, B11000000, B00000000, 
+  B00000000, B00000000, B01111111, B11111111, B11111111, B11000000, B00000011, B11111000, B00000000, 
+  B00000000, B00000000, B00111111, B11111111, B11111111, B11100000, B00011111, B11111100, B00000000, 
+  B00000000, B00000000, B00111111, B11111111, B11111111, B11111110, B11111111, B11111111, B00000000, 
+  B00000000, B00000000, B00011111, B11111111, B11111111, B11111111, B11111111, B11111000, B00000000, 
+  B00000000, B00000000, B00011111, B11111000, B00000000, B01111111, B11111111, B11000111, B11000000, 
+  B00000000, B00000000, B01111111, B11000111, B11111111, B11000111, B11111110, B00111111, B11100000, 
+  B00000001, B11111111, B11111111, B00111111, B11111111, B11110011, B11110001, B11111111, B11110000, 
+  B00000011, B11111111, B11111110, B01111111, B11111111, B11111100, B10001111, B11111111, B11110000, 
+  B00000111, B11111111, B11111110, B01111111, B11111111, B11111100, B00011111, B11111110, B00000000, 
+  B00000111, B11111111, B11111100, B11111111, B11111111, B11111110, B01111111, B11100000, B00000000, 
+  B00000000, B00000000, B00000000, B11111111, B11111111, B11111110, B01111111, B11000000, B00000000, 
+  B00000000, B00000000, B00000000, B01111111, B11111111, B11111100, B11111111, B11100000, B00000000, 
+  B00000111, B11111111, B11111111, B00111111, B11111111, B11111000, B01111111, B11111111, B00000000, 
+  B00000111, B11111111, B11111111, B11000111, B11111111, B11000111, B00001111, B11111111, B11000000, 
+  B00000011, B11111111, B11111111, B11111000, B00000000, B00111111, B11110001, B11111111, B10000000, 
+  B00000001, B11111111, B11111111, B11111111, B11111111, B11111111, B11111111, B00011111, B10000000, 
+  B00000000, B00000000, B00111111, B11111111, B11111111, B11111111, B11111111, B11100011, B00000000, 
+  B00000000, B00000000, B00001111, B11111111, B11111111, B11111001, B11111111, B11111100, B00000000, 
+  B00000000, B00000000, B00001111, B11111111, B11111111, B11100000, B01111111, B11111000, B00000000, 
+  B00000000, B00000000, B00011111, B11111111, B11111111, B00000000, B00000111, B11100000, B00000000, 
+  B00000000, B00000000, B00011111, B11111111, B11111111, B00000000, B00000001, B11000000, B00000000, 
+  B00000000, B00000000, B01111111, B11111111, B11111111, B00000000, B00000000, B00000000, B00000000, 
+  B00000000, B00000000, B00011111, B11111111, B11111111, B00000000, B00000000, B00000000, B00000000, 
+  B00000000, B00000000, B00000001, B11111111, B11111111, B00000000, B00000000, B00000000, B00000000
+};
 
 /* If a new message arrives, do this */
 void onMsghandler(char *topic, uint8_t* msg, unsigned int msglen) {
@@ -50,7 +89,6 @@ void onConnected(char *attribute, uint8_t* msg, unsigned int msglen) {
     microgear.setName(ALIAS);
 }
 
-
 void setup() {
     /* Add Event listeners */
 
@@ -68,11 +106,18 @@ void setup() {
 
     Serial.begin(115200);
     dht.begin();
-    Serial.println("DHTxx test!");
+    Wire.pins(D1, D2);
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3c); //initialize I2C addr 0x3c
+    display.clearDisplay(); // clears the screen and buffer
+
+    display.setTextColor(WHITE);
+    display.setCursor(50, 5);
+    display.setTextSize(1);
+    display.print("Loading...");
+    display.display();
+
     Serial.print("Wifi Connecting...");
 
-    /* Initial WIFI, this is just a basic method to configure WIFI on ESP8266.                       */
-    /* You may want to use other method that is more complicated, but provide better user experience */
     if (WiFi.begin(ssid, password)) {
         while (WiFi.status() != WL_CONNECTED) {
             delay(500);
@@ -83,6 +128,11 @@ void setup() {
     Serial.println("WiFi connected");  
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
+
+    display.clearDisplay();
+    display.setCursor(30, 5);
+    display.print("WiFi connected");
+    display.display();
 
     /* Initial with KEY, SECRET and also set the ALIAS here */
     microgear.init(KEY,SECRET,ALIAS);
@@ -118,6 +168,22 @@ void loop() {
             Serial.print("Temperature: ");
             Serial.print(vtmp);
             Serial.print(" *C ");
+
+            display.clearDisplay();
+            display.setTextColor(WHITE);
+            display.setCursor(85, 5);
+            display.setTextSize(1);
+            display.print(vhud);
+            display.setCursor(120, 5);
+            display.println("%");
+            display.setCursor(85, 20);
+            display.print(vtmp);
+            display.setCursor(120, 20);
+            display.println("C");
+            display.display();
+            
+            display.drawBitmap(0, 3,  gear, 72, 28, 1);
+            display.display();
 
             sprintf(ascii,"%d.%d,%d.%d,d-duino", (int)vtmp, tempe_value,(int)vhud,humid_value);
             microgear.chat("duinosensor",ascii);
