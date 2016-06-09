@@ -6,7 +6,6 @@
 #include "ESP8266WiFi.h"
 #include "Adafruit_SSD1306.h"
 #include "Wire.h"
-#include "string.h"
 
 #define OLED_RESET 13
 Adafruit_SSD1306 display(OLED_RESET);
@@ -57,7 +56,14 @@ void loop() {
       
       display.print(i + 1);
       display.print(": ");
-      display.print(WiFi.SSID(i));
+      if(WiFi.SSID(i).length()<=12){
+        display.print(WiFi.SSID(i));
+      }else{
+        //shorten wifi name, so it fits the screen
+        display.print(WiFi.SSID(i).substring(0, 6));
+        display.print("...");
+        display.print(WiFi.SSID(i).substring(WiFi.SSID(i).length()-5));
+      }
       display.println((WiFi.encryptionType(i) == ENC_TYPE_NONE)?" ":"*");
       display.display();
       if(line < 6){
