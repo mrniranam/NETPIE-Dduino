@@ -26,6 +26,9 @@ WiFiClient client;
 AuthClient *authclient;
 
 int timer = 0;
+float vhudOld = 0.0;
+float vtmpOld = 0.0;
+
 MicroGear microgear(client);
 DHT dht(DHTPIN, DHTTYPE);
 
@@ -144,6 +147,7 @@ void setup() {
 
     /* connect to NETPIE to a specific APPID */
     microgear.connect(APPID);
+    display.clearDisplay(); // clears the screen and buffer
 }
 
 void loop() {
@@ -157,6 +161,7 @@ void loop() {
         if (timer >= 1000) {
             float vhud = dht.readHumidity();
             float vtmp = dht.readTemperature();
+            
             char ascii[32];
 
             if (isnan(vhud) || isnan(vtmp) || vhud > 100 || vtmp > 100){
@@ -167,6 +172,15 @@ void loop() {
             int humid_value = (vhud - (int)vhud) * 100;
             int tempe_value = (vtmp - (int)vtmp) * 100;
 
+            display.drawBitmap(57, 3,  waterDrop, 16, 26, 1);
+            display.display();
+          
+            display.drawBitmap(60, 35,  thermo, 16, 29, 1);
+            display.display();
+            
+            display.drawBitmap(3, 8,  gear, 48, 48, 1);
+            display.display();
+            
             Serial.print("Humidity: ");
             Serial.print(vhud);
             Serial.print(" %\t");
@@ -174,27 +188,32 @@ void loop() {
             Serial.print(vtmp);
             Serial.print(" *C ");
 
-            display.clearDisplay();
-            display.setTextColor(WHITE);
-            display.setCursor(85, 15);
-            display.setTextSize(1);
-            display.print(vhud);
-            display.setCursor(120, 15);
-            display.println("%");
-            display.setCursor(85, 47);
-            display.print(vtmp);
-            display.setCursor(120, 47);
-            display.println("C");
-            display.display();
-
-            display.drawBitmap(57, 3,  waterDrop, 16, 26, 1);
-            display.display();
-
-            display.drawBitmap(60, 35,  thermo, 16, 29, 1);
-            display.display();
-            
-            display.drawBitmap(3, 8,  gear, 48, 48, 1);
-            display.display();
+            if(vhud != vhudOld || vtmp != vtmpOld){
+              display.setTextColor(BLACK);
+              display.setCursor(85, 15);
+              display.setTextSize(1);
+              display.print(vhudOld);
+              display.setCursor(120, 15);
+              display.setCursor(85, 47);
+              display.print(vtmpOld);
+              display.setCursor(120, 47);
+              display.display();
+    
+              vhudOld = vhud;
+              vtmpOld = vtmp;
+    
+              display.setTextColor(WHITE);
+              display.setCursor(85, 15);
+              display.setTextSize(1);
+              display.print(vhud);
+              display.setCursor(120, 15);
+              display.println("%");
+              display.setCursor(85, 47);
+              display.print(vtmp);
+              display.setCursor(120, 47);
+              display.println("C");
+              display.display();
+            }
 
             sprintf(ascii,"%d.%d,%d.%d,d-duino", (int)vtmp, tempe_value,(int)vhud,humid_value);
             microgear.chat("duinosensor",ascii);
